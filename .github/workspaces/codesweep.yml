@@ -1,0 +1,136 @@
+name: Full Stack CI
+
+on:
+  push:
+    branches: [main, develop, test, security-codesweep]
+  pull_request:
+    branches: [main, develop, test, security-codesweep]
+    types: [opened, synchronize, closed]
+
+jobs:
+  # =============================
+  # FRONTEND JOB
+  # =============================
+  frontend:
+    name: React Frontend CI
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Install Test Framework (CI only)
+        run: npm install --no-save vitest jsdom @testing-library/react
+
+      - name: Run Unit Tests
+        run: |
+          if ls src/**/*.{test,spec}.{js,jsx,ts,tsx} 1> /dev/null 2>&1; then
+            npx vitest run --coverage
+          else
+            echo "No test files found. Skipping frontend tests."
+          fi
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Upload Frontend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+  # =============================
+  # BACKEND JOB (SPRING BOOT)
+  # =============================
+  backend:
+    name: Spring Boot Backend CI
+    needs: frontend
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Run Unit Tests
+        run: mvn test
+
+      - name: Build Backend
+        run: mvn clean package -DskipTests
+
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+
+  # =============================
+  # CODE SWEEP SCAN
+  # =============================
+  scan:
+    name: HCL AppScan CodeSweep Scan
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
+    needs: [frontend, backend]
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run AppScan CodeSweep
+        uses: HCL-TECH-SOFTWARE/appscan-codesweep-action@v2.1
+        with:
+          exclude_paths: ".github/"
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =============================
+  # CODE SWEEP PUBLISH
+  # =============================
+  publish:
+    name: HCL AppScan CodeSweep Publish
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
+    needs: scan
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+
+    steps:
+      - name: Publish issues to ASoC
+        uses: HCL-TECH-SOFTWARE/appscan-codesweep-action@v2.1
+        with:
+          asoc_key: ${{ secrets.ASOC_KEY }}
+          asoc_secret: ${{ secrets.ASOC_SECRET }}
+          publish_on_merge: true
+          application_id: 1b01198e-fa0a-4980-929b-49c00fa58f6e
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
