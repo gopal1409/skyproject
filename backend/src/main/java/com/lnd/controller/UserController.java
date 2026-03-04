@@ -1,7 +1,19 @@
-@GetMapping("/search")
-public String searchUser(@RequestParam String username) {
+package com.lnd.controller;
 
-    String query = "SELECT * FROM users WHERE username = ?";
+import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 
-    return jdbcTemplate.queryForObject(query, new Object[]{username}, String.class);
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    private JdbcTemplate jdbcTemplate;
+
+    @GetMapping("/search")
+    public String searchUser(@RequestParam String username) {
+
+        String query = "SELECT * FROM users WHERE username = '" + username + "'";
+
+        return jdbcTemplate.queryForObject(query, String.class);
+    }
 }
