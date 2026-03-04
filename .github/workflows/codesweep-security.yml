@@ -13,7 +13,8 @@ jobs:
   # =============================
   frontend:
     name: React Frontend CI
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     defaults:
@@ -57,7 +58,8 @@ jobs:
   # =============================
   backend:
     name: Spring Boot Backend CI
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     defaults:
@@ -91,7 +93,8 @@ jobs:
   # =============================
   scan:
     name: HCL AppScan CodeSweep Scan
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
 
     steps:
@@ -111,7 +114,8 @@ jobs:
   # =============================
   publish:
     name: HCL AppScan CodeSweep Publish
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
 
     steps:
