@@ -10,10 +10,10 @@ public class UserController {
     private JdbcTemplate jdbcTemplate;
 
     @GetMapping("/search")
-    public String searchUser(@RequestParam String username) {
+public String searchUser(@RequestParam String username) {
 
-        String query = "SELECT * FROM users WHERE username = '" + username + "'";
+    String query = "SELECT * FROM users WHERE username = ?";
 
-        return jdbcTemplate.queryForObject(query, String.class);
-    }
+    return jdbcTemplate.queryForObject(query, new Object[]{username}, String.class);
+}
 }
