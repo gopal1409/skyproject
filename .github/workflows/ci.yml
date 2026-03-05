@@ -1,0 +1,85 @@
+#we need to wrtie down the workflow
+name: Full Stack CI - Develop
+#this workflow will execute on push or pull request to main or develop branches
+on:
+  push:
+    branches: [ main, develop, security ]
+  pull_request:
+    branches: [ main, develop, security ]
+    types: [opened,synchronize]
+jobs:
+    # ============
+    # Frontend Job
+    # ============
+    frontend:
+        name: React Frontend CI
+        runs-on: ubuntu-latest #this is the runner that will execute the job
+        #runs-on: self-hosted  #this is the runner that will execute the job
+        defaults:
+            run:
+                working-directory: ./frontend #this is the directory where the frontend code is located 
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 0 #this command checks out the code from the repository with full history, which is necessary for some actions that require access to the commit history
+            - name: Set up Node.js
+              uses: actions/setup-node@v3 #this action sets up the Node.js environment
+              with:
+                node-version: '20' #this is the version of Node.js that we want to use
+            - name: Install dependencies
+              run: |
+                rm -rf node_modules package-lock.json #this command removes the node_modules folder and package-lock.json file to ensure a clean install
+                npm install #this command installs the dependencies specified in package.json
+            - name: Intall test framework (CI only)
+              run: npm install --save-dev jest #this command installs the Jest testing framework as a dev dependency
+            - name: build frontend
+              run: npm run build #this command builds the frontend application
+            - name: upload the frontend artifact 
+              uses: actions/upload-artifact@v4 #this action uploads the built frontend artifact
+              with:
+                name: frontend-build
+                path: frontend/dist
+    # ============
+    # backend Job
+    # ============
+    scan:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        - name: Run AppScan CodeSweep
+          uses: HCL-TECH-SOFTWARE/appscan-codesweep-action@v2.1
+      env: 
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    backend:
+        needs: scan #this job will run after the frontend job is completed
+        if: needs.scan.result == 'success' #this job will only run if the scan job was successful
+        name: Spring Boot Backend CI
+        runs-on: ubuntu-latest #this is the runner that will execute the job
+        defaults:
+            run:
+                working-directory: ./backend #this is the directory where the frontend code is located 
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3 #this action checks out the code from the repository
+            - name: Set up Java
+              uses: actions/setup-java@v4 #this action sets up the Node.js environment
+              with:
+                distribution: 'temurin'
+                java-version: '17' #this is the version of Java that we want to use
+                cache: maven #this caches the Maven dependencies to speed up the build process
+
+            - name: Run Unit Tests
+              if: success()
+              run: mvn test #this command installs the Jest testing framework as a dev dependency
+            - name: build backend
+              run: mvn clean package -DskipTests #this command builds the frontend application
+            - name: upload the backend artifact 
+              if: success() #this step will only run if the previous steps were successful
+              uses: actions/upload-artifact@v4 #this action uploads the built frontend artifact
+              with:
+                name: backend-jar
+                path: backend/target/*.jar
