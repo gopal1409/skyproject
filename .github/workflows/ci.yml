@@ -128,7 +128,7 @@ jobs:
 # DAST Scan
 # -----------------------------
 
-  zap-scan:
+  dast-test:
     runs-on: ubuntu-latest
 
     steps:
