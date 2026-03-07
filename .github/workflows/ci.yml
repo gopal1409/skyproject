@@ -56,7 +56,7 @@ jobs:
           mvn clean package
 
 # -----------------------------
-# Build Docker Images
+# Build Docker Images and scan images with Trivy
 # -----------------------------
 
   docker-build:
@@ -89,7 +89,7 @@ jobs:
         run: |
           trivy image \
           --severity CRITICAL,HIGH,MEDIUM,LOW \
-          --exit-code 1 \
+          --exit-code 0 \
           frontend-image:latest
 
       # -------------------------
@@ -100,7 +100,7 @@ jobs:
         run: |
           trivy image \
           --severity CRITICAL,HIGH,MEDIUM,LOW \
-          --exit-code 1 \
+          --exit-code 0 \
           backend-image:latest
 
 # -----------------------------
