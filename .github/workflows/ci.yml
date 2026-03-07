@@ -1,8 +1,12 @@
 name: Enterprise DevSecOps Pipeline
 
 on:
- push:
+  push:
     branches: [main]
+
+env:
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/frontend:latest
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/backend:latest
 
 jobs:
 
@@ -14,19 +18,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - uses: actions/checkout@v4
 
-      - name: Install Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install dependencies
-        run: |
-          cd frontend
-          rm -rf node_modules
-          rm -f package-lock.json
-          npm install
+
       - name: Build React
         run: |
           cd frontend
@@ -41,11 +38,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
@@ -56,10 +51,10 @@ jobs:
           mvn clean package
 
 # -----------------------------
-# Build Docker Images and scan images with Trivy
+# Docker Build + Scan
 # -----------------------------
 
-  docker-build:
+  docker-build-scan:
     runs-on: ubuntu-latest
     needs: [frontend-build, backend-build]
 
@@ -67,64 +62,74 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # Build Images
       - name: Build Frontend Image
-        run: |
-          docker build -t frontend-image ./frontend
+        run: docker build -t frontend-image ./frontend
 
       - name: Build Backend Image
-        run: |
-          docker build -t backend-image ./backend
-      # -------------------------
+        run: docker build -t backend-image ./backend
+
       # Install Trivy
-      # -------------------------
+      - uses: aquasecurity/setup-trivy@v0.2.0
 
-      - name: Install Trivy
-        uses: aquasecurity/setup-trivy@v0.2.0
-
-      # -------------------------
-      # Scan Frontend Image
-      # -------------------------
-
+      # Scan Images
       - name: Scan Frontend Image
         run: |
-          trivy image \
-          --severity CRITICAL,HIGH,MEDIUM,LOW \
-          --exit-code 0 \
-          frontend-image:latest
-
-      # -------------------------
-      # Scan Backend Image
-      # -------------------------
+          trivy image --severity CRITICAL,HIGH,MEDIUM,LOW --exit-code 0 frontend-image
 
       - name: Scan Backend Image
         run: |
-          trivy image \
-          --severity CRITICAL,HIGH,MEDIUM,LOW \
-          --exit-code 0 \
-          backend-image:latest
+          trivy image --severity CRITICAL,HIGH,MEDIUM,LOW --exit-code 0 backend-image
+
+      # Login DockerHub
+      - name: Docker Login
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
+          -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      # Tag Images
+      - name: Tag Images
+        run: |
+          docker tag frontend-image $FRONTEND_IMAGE
+          docker tag backend-image $BACKEND_IMAGE
+
+      # Push Images
+      - name: Push Images
+        run: |
+          docker push $FRONTEND_IMAGE
+          docker push $BACKEND_IMAGE
 
 # -----------------------------
-# Run Containers
+# Pull Images and Run Containers
 # -----------------------------
 
   run-container:
     runs-on: ubuntu-latest
-    needs: docker-build
+    needs: docker-build-scan
 
     steps:
 
-      - uses: actions/checkout@v4
-
-      - name: Start Backend
+      - name: Docker Login
         run: |
-          docker run -d -p 8080:8080 backend-image
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
+          -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
-      - name: Start Frontend
+      - name: Pull Images
         run: |
-          docker run -d -p 3000:80 frontend-image
+          docker pull $FRONTEND_IMAGE
+          docker pull $BACKEND_IMAGE
+
+      - name: Run Backend
+        run: |
+          docker run -d -p 8080:8080 $BACKEND_IMAGE
+          sleep 20
+
+      - name: Run Frontend
+        run: |
+          docker run -d -p 3000:80 $FRONTEND_IMAGE
 
 # -----------------------------
-# DAST Testing
+# DAST Scan
 # -----------------------------
 
   dast-test:
@@ -132,25 +137,10 @@ jobs:
     needs: run-container
 
     steps:
-
       - name: OWASP ZAP Scan
         uses: zaproxy/action-baseline@v0.8.0
         with:
           target: "http://localhost:8080"
-
-# -----------------------------
-# Docker Login
-# -----------------------------
-
-  docker-login:
-    runs-on: ubuntu-latest
-    needs: dast-test
-
-    steps:
-
-      - name: Login DockerHub
-        run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
 # -----------------------------
 # Image Signing
@@ -158,39 +148,20 @@ jobs:
 
   image-sign:
     runs-on: ubuntu-latest
-    needs: docker-login
+    needs: dast-test
 
     steps:
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign Frontend Image
-        run: |
-          cosign sign --key env://COSIGN_PRIVATE_KEY frontend-image
+      - uses: sigstore/cosign-installer@v3
 
       - name: Sign Backend Image
         run: |
-          cosign sign --key env://COSIGN_PRIVATE_KEY backend-image
+          cosign sign --key env://COSIGN_PRIVATE_KEY $BACKEND_IMAGE
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
 
-# -----------------------------
-# Push Image to DockerHub
-# -----------------------------
-
-  push-image:
-    runs-on: ubuntu-latest
-    needs: image-sign
-
-    steps:
-
-      - name: Tag Images
+      - name: Sign Frontend Image
         run: |
-          docker tag frontend-image ${{ secrets.DOCKER_USERNAME }}/frontend:latest
-          docker tag backend-image ${{ secrets.DOCKER_USERNAME }}/backend:latest
-
-      - name: Push Images
-        run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/frontend:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/backend:latest
+          cosign sign --key env://COSIGN_PRIVATE_KEY $FRONTEND_IMAGE
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
