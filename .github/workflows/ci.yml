@@ -153,7 +153,10 @@ jobs:
 
     - name: Create ZAP report folder
       run: mkdir -p zap-report
-
+    - name: Run Backend
+      run: |
+        docker run -d -p 8080:8080 $BACKEND_IMAGE
+        sleep 60
     - name: Run ZAP Scan
       run: |
         docker run --network host \
