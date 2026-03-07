@@ -116,6 +116,10 @@ jobs:
 
     steps:
 
+      - name: Cleanup Docker
+        run: |
+          docker container prune -f
+
       - name: Docker Login
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
@@ -134,9 +138,7 @@ jobs:
       - name: Run Frontend
         run: |
           docker run -d -p 3000:80 $FRONTEND_IMAGE
-      - name: Cleanup Docker
-        run: |
-          docker container prune -f
+
 
 # -----------------------------
 # DAST Scan
