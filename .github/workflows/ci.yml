@@ -15,8 +15,8 @@ jobs:
 # -----------------------------
 
   frontend-build:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -40,8 +40,8 @@ jobs:
 # -----------------------------
 
   backend-build:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -60,8 +60,8 @@ jobs:
 # -----------------------------
 
   docker-build-scan:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     needs: [frontend-build, backend-build]
 
     steps:
@@ -111,17 +111,14 @@ jobs:
 
   run-container:
     runs-on: ubuntu-latest
-    #runs-on: self-hosted
     needs: docker-build-scan
 
     steps:
 
-      - name: Cleanup Docker containers
+      - name: Cleanup Docker
         run: |
           docker container prune -f
-          docker image prune -f
           docker network prune -f
-          docker ps -aq | xargs -r docker rm -f
 
       - name: Docker Login
         run: |
@@ -133,56 +130,66 @@ jobs:
           docker pull $FRONTEND_IMAGE
           docker pull $BACKEND_IMAGE
 
+      - name: Create Network
+        run: docker network create devsecops-net
+
       - name: Run Backend
         run: |
-          docker run -d -p 8080:8080 $BACKEND_IMAGE
-      - name: Wait for backend
-        run: sleep 60
+          docker run -d \
+          --name backend \
+          --network devsecops-net \
+          -p 8080:8080 \
+          $BACKEND_IMAGE
 
       - name: Run Frontend
         run: |
-          docker run -d -p 3000:80 $FRONTEND_IMAGE
+          docker run -d \
+          --name frontend \
+          --network devsecops-net \
+          -p 3000:80 \
+          $FRONTEND_IMAGE
 
-
+      - name: Wait for backend
+        run: sleep 40
+      
 # -----------------------------
 # DAST Scan
 # -----------------------------
 
   dast-test:
     runs-on: ubuntu-latest
-    #runs-on: self-hosted
     needs: run-container
 
     steps:
-    - name: Wait for application
-      run: sleep 30
 
-    - name: Fix report folder permissions
-      run: |
-        mkdir -p zap-report
-        chmod -R 777 zap-report
+      - name: Prepare report folder
+        run: |
+          mkdir -p zap-report
+          chmod -R 777 zap-report
 
-    - name: Run ZAP Scan
-      run: |
-        docker run --network host \
-          --user root -v $(pwd)/zap-report:/zap/wrk/:rw \
-          -t ghcr.io/zaproxy/zaproxy:stable \
-          zap-baseline.py \
-          -t http://localhost:8080 \
-          -r report.html
-    - name: Upload ZAP Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: zap-report
-        path: zap-report
+      - name: Run ZAP Scan
+        run: |
+          docker run \
+            --network devsecops-net \
+            --user root \
+            -v $(pwd)/zap-report:/zap/wrk/:rw \
+            -t ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://backend:8080 \
+            -r report.html
 
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: zap-report
 # -----------------------------
 # Image Signing
 # -----------------------------
 
   image-sign:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     needs: dast-test
 
     steps:
