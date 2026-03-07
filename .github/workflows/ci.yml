@@ -134,7 +134,7 @@ jobs:
       - name: Run Backend
         run: |
           docker run -d -p 8080:8080 $BACKEND_IMAGE
-          sleep 20
+          sleep 60
 
       - name: Run Frontend
         run: |
