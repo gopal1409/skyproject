@@ -15,8 +15,8 @@ jobs:
 # -----------------------------
 
   frontend-build:
-    runs-on: ubuntu-latest
-
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -40,8 +40,8 @@ jobs:
 # -----------------------------
 
   backend-build:
-    runs-on: ubuntu-latest
-
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +60,8 @@ jobs:
 # -----------------------------
 
   docker-build-scan:
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [frontend-build, backend-build]
 
     steps:
@@ -109,7 +110,8 @@ jobs:
 # -----------------------------
 
   run-container:
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: docker-build-scan
 
     steps:
@@ -138,12 +140,16 @@ jobs:
 # -----------------------------
 
   dast-test:
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: run-container
 
     steps:
     - name: Wait for application
       run: sleep 30
+
+    - name: Create ZAP report folder
+      run: mkdir -p zap-report
 
     - name: OWASP ZAP Baseline Scan
       uses: zaproxy/action-baseline@v0.12.0
@@ -154,17 +160,15 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: zap-report
-        path: |
-          report_json.json
-          report_md.md
-          report_html.html
+        path: zap-report
 
 # -----------------------------
 # Image Signing
 # -----------------------------
 
   image-sign:
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: dast-test
 
     steps:
