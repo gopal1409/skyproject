@@ -119,6 +119,7 @@ jobs:
       - name: Cleanup Docker
         run: |
           docker container prune -f
+          docker ps -aq | xargs -r docker rm -f
 
       - name: Docker Login
         run: |
