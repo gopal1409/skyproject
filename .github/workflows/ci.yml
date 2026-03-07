@@ -87,7 +87,7 @@ jobs:
         run: |
           trivy image --severity CRITICAL,HIGH,MEDIUM,LOW --format sarif -o trivy-results.sarif --exit-code 0 backend-image
       - name: Upload Trivy SARIF Results in security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
       # Login DockerHub
