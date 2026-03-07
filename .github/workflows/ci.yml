@@ -48,7 +48,7 @@ jobs:
       - name: Build Spring Boot
         run: |
           cd backend
-          ./mvnw clean package
+          ./mvn clean package
 
 # -----------------------------
 # Build Docker Images
