@@ -5,8 +5,9 @@ on:
     branches: [main]
 permissions:
   contents: read
+  security-events: write
+  actions: read
   id-token: write
-
 env:
   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/frontend:latest
   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/backend:latest
