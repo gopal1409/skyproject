@@ -15,8 +15,8 @@ jobs:
 # -----------------------------
 
   frontend-build:
-    runs-on: ubuntu-latest
-    #runs-on: self-hosted
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -34,14 +34,13 @@ jobs:
           cd frontend
           npm install
           npm run build
-
 # -----------------------------
 # Build Backend
 # -----------------------------
 
   backend-build:
-    runs-on: ubuntu-latest
-    #runs-on: self-hosted
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -54,14 +53,13 @@ jobs:
         run: |
           cd backend
           mvn clean package
-
 # -----------------------------
 # Docker Build + Scan
 # -----------------------------
 
   docker-build-scan:
-    runs-on: ubuntu-latest
-    #runs-on: self-hosted
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [frontend-build, backend-build]
 
     steps:
@@ -82,86 +80,92 @@ jobs:
       - name: Scan Frontend Image
         run: |
           trivy image --severity CRITICAL,HIGH,MEDIUM,LOW --exit-code 0 frontend-image
-
       - name: Scan Backend Image
         run: |
           trivy image --severity CRITICAL,HIGH,MEDIUM,LOW --exit-code 0 backend-image
-
       # Login DockerHub
       - name: Docker Login
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
           -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-
       # Tag Images
       - name: Tag Images
         run: |
           docker tag frontend-image $FRONTEND_IMAGE
           docker tag backend-image $BACKEND_IMAGE
-
       # Push Images
       - name: Push Images
         run: |
           docker push $FRONTEND_IMAGE
           docker push $BACKEND_IMAGE
-
 # -----------------------------
 # Pull Images and Run Containers
 # -----------------------------
 
-  run-container-dast-test:
-    runs-on: ubuntu-latest
+  run-container:
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: docker-build-scan
 
     steps:
-
-      - name: Cleanup Docker
-        run: |
-          docker container prune -f
-          docker network prune -f
 
       - name: Docker Login
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
           -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-
       - name: Pull Images
         run: |
           docker pull $FRONTEND_IMAGE
           docker pull $BACKEND_IMAGE
-
-      - name: Create Network
-        run: docker network create devsecops-net
-
       - name: Run Backend
         run: |
-          docker run -d \
-          --name backend \
-          --network devsecops-net \
-          -p 8080:8080 \
-          $BACKEND_IMAGE
-
+          docker run -d -p 8080:8080 $BACKEND_IMAGE
+          sleep 20
       - name: Run Frontend
         run: |
-          docker run -d \
-          --name frontend \
-          --network devsecops-net \
-          -p 3000:80 \
-          $FRONTEND_IMAGE
+          docker run -d -p 3000:80 $FRONTEND_IMAGE
+# -----------------------------
+# DAST Scan
+# -----------------------------
 
-      - name: Wait for backend health
+  zap-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Build containers
+      - name: Build containers
+        run: docker compose build
+
+      # Start services
+      - name: Start application stack
+        run: docker compose up -d
+
+      # Wait until backend is ready
+      - name: Wait for backend
         run: |
           for i in {1..30}; do
             if curl -s http://localhost:8080 > /dev/null; then
-              echo "Backend is ready"
+              echo "Backend ready"
               exit 0
             fi
             echo "Waiting for backend..."
             sleep 5
           done
           echo "Backend failed to start"
-          docker logs backend
+          docker compose logs backend
           exit 1
+
+      # Create report directory
+      - name: Prepare ZAP report folder
+        run: |
+          mkdir -p zap-report
+          chmod -R 777 zap-report
+
+      # Run OWASP ZAP baseline scan
       - name: Run ZAP Scan
         run: |
           docker run \
@@ -171,21 +175,28 @@ jobs:
             -t ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://localhost:8080 \
-            -r report.html
-      - name: Upload ZAP Report
+            -r zap-report.html
+
+      # Upload ZAP report
+      - name: Upload ZAP report
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
-          path: zap-report      
+          path: zap-report
+
+      # Shutdown containers
+      - name: Stop containers
+        if: always()
+        run: docker compose down
 
 # -----------------------------
 # Image Signing
 # -----------------------------
 
   image-sign:
-    runs-on: ubuntu-latest
-    #runs-on: self-hosted
-    needs:  run-container-dast-test
+    #runs-on: ubuntu-latest
+    runs-on: self-hosted
+    needs: dast-test
 
     steps:
 
