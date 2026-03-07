@@ -61,12 +61,16 @@ jobs:
 # -----------------------------
 
   docker-build-scan:
+
     runs-on: ubuntu-latest
     #runs-on: self-hosted
     needs: [frontend-build, backend-build]
-
+    permissions:
+     contents: read
+     id-token: write
+     security-events: write
     steps:
-
+    
       - uses: actions/checkout@v4
 
       # Build Images
@@ -87,7 +91,7 @@ jobs:
         run: |
           trivy image --severity CRITICAL,HIGH,MEDIUM,LOW --format sarif -o trivy-results.sarif --exit-code 0 backend-image
       - name: Upload Trivy SARIF Results in security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
       # Login DockerHub
