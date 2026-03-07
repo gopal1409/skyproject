@@ -149,18 +149,19 @@ jobs:
           -p 3000:80 \
           $FRONTEND_IMAGE
 
-      - name: Wait for backend
+      - name: Wait for backend health
         run: |
-          for i in {1..20}; do
-            curl -s http://localhost:8080 && break
+          for i in {1..30}; do
+            if curl -s http://localhost:8080 > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
             echo "Waiting for backend..."
             sleep 5
           done
-      - name: Prepare report folder
-        run: |
-          mkdir -p zap-report
-          chmod -R 777 zap-report
-
+          echo "Backend failed to start"
+          docker logs backend
+          exit 1
       - name: Run ZAP Scan
         run: |
           docker run \
