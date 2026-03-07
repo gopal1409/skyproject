@@ -15,8 +15,8 @@ jobs:
 # -----------------------------
 
   frontend-build:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -39,8 +39,8 @@ jobs:
 # -----------------------------
 
   backend-build:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -58,8 +58,8 @@ jobs:
 # -----------------------------
 
   docker-build-scan:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     needs: [frontend-build, backend-build]
 
     steps:
@@ -103,8 +103,8 @@ jobs:
 # -----------------------------
 
   run-container:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     needs: docker-build-scan
 
     steps:
@@ -174,7 +174,7 @@ jobs:
             -v $(pwd)/zap-report:/zap/wrk/:rw \
             -t ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-            -t http://localhost:8080 \
+            -t http://localhost:8080/api \
             -r zap-report.html
 
       # Upload ZAP report
