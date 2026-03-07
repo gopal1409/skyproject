@@ -110,13 +110,18 @@ jobs:
 # -----------------------------
 
   run-container:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     needs: docker-build-scan
 
     steps:
 
-
+      - name: Cleanup Docker containers
+        run: |
+          docker container prune -f
+          docker image prune -f
+          docker network prune -f
+          docker ps -aq | xargs -r docker rm -f
 
       - name: Docker Login
         run: |
@@ -131,11 +136,12 @@ jobs:
       - name: Run Backend
         run: |
           docker run -d -p 8080:8080 $BACKEND_IMAGE
-          sleep 60
+      - name: Wait for backend
+        run: sleep 60
 
       - name: Run Frontend
         run: |
-          docker run -d -p 3001:80 $FRONTEND_IMAGE
+          docker run -d -p 3000:80 $FRONTEND_IMAGE
 
 
 # -----------------------------
@@ -143,8 +149,8 @@ jobs:
 # -----------------------------
 
   dast-test:
-    #runs-on: ubuntu-latest
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+    #runs-on: self-hosted
     needs: run-container
 
     steps:
@@ -153,10 +159,7 @@ jobs:
 
     - name: Create ZAP report folder
       run: mkdir -p zap-report
-    - name: Run Backend
-      run: |
-        docker run -d -p 8080:8080 $BACKEND_IMAGE
-        sleep 60
+
     - name: Run ZAP Scan
       run: |
         docker run --network host \
