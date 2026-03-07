@@ -175,7 +175,7 @@ jobs:
             -t ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://localhost:8080/api/enquiries \
-            -r zap-report.html
+            -r zap-report.html -I
 
       # Upload ZAP report
       - name: Upload ZAP report
