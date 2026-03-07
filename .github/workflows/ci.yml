@@ -157,8 +157,10 @@ jobs:
     - name: Wait for application
       run: sleep 30
 
-    - name: Create ZAP report folder
-      run: mkdir -p zap-report
+    - name: Fix report folder permissions
+      run: |
+        mkdir -p zap-report
+        chmod -R 777 zap-report
 
     - name: Run ZAP Scan
       run: |
