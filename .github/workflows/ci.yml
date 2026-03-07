@@ -134,6 +134,9 @@ jobs:
       - name: Run Frontend
         run: |
           docker run -d -p 3000:80 $FRONTEND_IMAGE
+      - name: Cleanup Docker
+        run: |
+          docker container prune -f
 
 # -----------------------------
 # DAST Scan
