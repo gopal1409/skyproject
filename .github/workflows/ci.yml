@@ -229,15 +229,17 @@ jobs:
           repository: gopal1409/skyproject-gitops
           token: ${{ secrets.GITOPS_TOKEN }}
 
-      - name: Update Kubernetes Manifests
+      - name: Update image tags
         run: |
-          sed -i "s|gopal1409/backend:.*|gopal1409/backend:${{ github.sha }}|g" base/backend-deployment.yaml
-          sed -i "s|gopal1409/frontend:.*|gopal1409/frontend:${{ github.sha }}|g" base/frontend-deployment.yaml
+          sed -i "s|image: docker.io/gopal1409/backend:.*|image: docker.io/gopal1409/backend:${{ github.sha }}|g" base/backend-deployment.yaml
+          sed -i "s|image: docker.io/gopal1409/frontend:.*|image: docker.io/gopal1409/frontend:${{ github.sha }}|g" base/frontend-deployment.yaml
 
-      - name: Commit Changes
+      - name: Commit and Push
         run: |
-          git config user.name github-actions
-          git config user.email actions@github.com
-          git add .
-          git commit -m "Update image tag to ${{ github.sha }}"
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add base/backend-deployment.yaml
+          git add base/frontend-deployment.yaml
+
+          git diff --cached --quiet || git commit -m "Update image tag to ${{ github.sha }}"
           git push
