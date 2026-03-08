@@ -23,6 +23,7 @@
  <artifactId>mariadb-java-client</artifactId>
 </dependency>
 </dependencies>
+
 <build>
  <finalName>app</finalName>
  <plugins>
