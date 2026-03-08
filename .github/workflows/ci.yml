@@ -228,14 +228,7 @@ jobs:
         with:
           repository: gopal1409/skyproject-gitops
           token: ${{ secrets.GITOPS_TOKEN }}
-      - name: Prepare environment manifests
-        run: |
-          mkdir -p dev
-
-          cp templates/backend.yaml dev/backend.yaml
-          cp templates/frontend.yaml dev/frontend.yaml
-          cp templates/namespace.yaml dev/namespace.yaml
-
+      
       - name: Update Kubernetes Manifests
         run: |
           sed -i "s|backend:.*|backend:${{ github.sha }}|g" dev/backend.yaml
