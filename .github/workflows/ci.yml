@@ -231,8 +231,8 @@ jobs:
       
       - name: Update Kubernetes Manifests
         run: |
-          sed -i "s|backend:.*|backend:${{ github.sha }}|g" dev/backend.yaml
-          sed -i "s|frontend:.*|frontend:${{ github.sha }}|g" dev/frontend.yaml
+          sed -i "s|backend:.*|backend:${{ github.sha }}|g" templates/backend.yaml
+          sed -i "s|frontend:.*|frontend:${{ github.sha }}|g" templates/frontend.yaml
 
       - name: Commit Changes
         run: |
