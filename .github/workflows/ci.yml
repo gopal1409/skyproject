@@ -2,7 +2,7 @@ name: Enterprise DevSecOps Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, skynet]
 
 permissions:
   contents: write
